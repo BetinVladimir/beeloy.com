@@ -1,0 +1,31 @@
+# env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# go
+/backend/bin/
+*.test
+*.out
+
+# node
+node_modules/
+.next/
+.open-next/
+.wrangler/
+dist/
+coverage/
+playwright-report/
+test-results/
+
+# os / ide
+.DS_Store
+.idea/
+.vscode/
+
+# wrangler
+.dev.vars
+*.tsbuildinfo
+next-env.d.ts

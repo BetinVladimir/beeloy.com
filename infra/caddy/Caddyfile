@@ -1,0 +1,56 @@
+{
+	admin localhost:2019
+	servers {
+		# only Cloudflare may be the direct peer; CLOUDFLARE_CIDRS is a space-separated list (infra/scripts/update-cf-ips.sh)
+		trusted_proxies static {$CLOUDFLARE_CIDRS}
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
+# Entry point of the API: Cloudflare (proxied DNS record api-site.beeloy.com) -> this Caddy -> Go API.
+# The certificate is a Cloudflare Origin CA certificate stored on the server (/etc/beeloy/certs), and the client
+# certificate check (Authenticated Origin Pulls) makes sure only Cloudflare can talk to this server.
+api-site.beeloy.com:443 {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key {
+		client_auth {
+			mode require_and_verify
+			trusted_ca_cert_file /etc/caddy/certs/cf-origin-pull-ca.pem
+		}
+	}
+
+	# Public GET-only dictionaries and categories may be read without the Worker secret. For them Caddy discards any
+	# client-supplied values and sets the real client address from the verified Cloudflare header.
+	@public_get {
+		method GET
+		path /api/v1/i18n/meta /api/v1/i18n/* /api/v1/categories
+		not path /api/v1/i18n/*/*
+	}
+	handle @public_get {
+		reverse_proxy api:8080 {
+			header_up -X-Proxy-Secret
+			header_up X-Real-Client-IP {client_ip}
+			header_up X-Forwarded-Proto https
+		}
+	}
+
+	@api path /api/*
+	handle @api {
+		reverse_proxy api:8080 {
+			flush_interval -1
+			# X-Proxy-Secret and X-Real-Client-IP come from the Worker; the Go API verifies the secret and the peer
+			header_up X-Forwarded-Proto https
+			transport http {
+				response_header_timeout 60s
+			}
+		}
+	}
+
+	handle {
+		respond "not found" 404
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

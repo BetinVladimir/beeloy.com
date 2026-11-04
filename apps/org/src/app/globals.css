@@ -1,0 +1,19 @@
+:root { --bg: #fff; --fg: #1b1b1f; --muted: #52525b; --brand: #fab005; --brand-dark: #7a5000; --line: #e4e4e7; }
+@media (prefers-color-scheme: dark) { :root { --bg: #16161a; --fg: #f4f4f5; --muted: #b4b4bc; --brand-dark: #ffd43b; --line: #3f3f46; } }
+* { box-sizing: border-box; }
+html { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--fg); line-height: 1.6; }
+a { color: var(--brand-dark); text-decoration: underline; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+header .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; padding-bottom: 16px; }
+nav { display: flex; flex-wrap: wrap; gap: 16px; }
+.brand { font-weight: 800; font-size: 1.4rem; color: var(--brand-dark); text-decoration: none; }
+main { padding: 32px 0 48px; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.8rem); line-height: 1.2; margin: 0 0 16px; }
+.lead { font-size: 1.2rem; color: var(--muted); max-width: 40rem; }
+.button { display: inline-block; margin-top: 16px; padding: 12px 20px; border-radius: 8px; background: var(--brand); color: #1b1b1f; font-weight: 700; text-decoration: none; }
+.points { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 32px; }
+.points section { border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+.points h2 { margin: 0 0 8px; font-size: 1.1rem; }
+footer { border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 16px; padding-bottom: 24px; }

@@ -1,0 +1,98 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    runs-on: ubuntu-latest # Docker is available: tests start PostgreSQL, Redis and an S3 mock with testcontainers
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: backend/go.mod, cache-dependency-path: backend/go.sum }
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./... -race -count=1
+
+  locales-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          cmp contracts/locales.json backend/internal/locales/locales.json
+          cmp contracts/locales.json apps/web/src/contracts/locales.json
+          cmp contracts/messages/en.json apps/web/src/contracts/fallback-en.json
+          cmp contracts/locales.json apps/org/src/contracts/locales.json
+          cmp contracts/messages/en.json apps/org/src/contracts/fallback-en.json
+          cmp contracts/messages/en.json backend/internal/i18nstore/fallback_en.json
+
+  web:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 12 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm extract-keys # every t('key') exists in contracts/messages/en.json
+      - run: pnpm test
+      - run: pnpm build:cf # builds the Worker bundle; nothing is deployed
+
+  org:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/org } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 12 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/org/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+      - name: SEO smoke - canonical on beeloy.org, no cookies
+        env: { NEXT_PUBLIC_SITE_URL: "https://beeloy.org", NEXT_PUBLIC_COM_URL: "https://beeloy.com" }
+        run: |
+          pnpm exec next start -p 3199 &
+          sleep 6
+          curl -si http://localhost:3199/de/about > page.txt
+          grep -q '<link rel="canonical" href="https://beeloy.org/de/about"' page.txt
+          ! grep -qi '^set-cookie' page.txt
+          kill %1
+      - run: pnpm build:cf # builds the Worker bundle; nothing is deployed
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: { POSTGRES_PASSWORD: ci }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DATABASE_URL: postgres://postgres:ci@localhost:5432/postgres?sslmode=disable
+      MIGRATIONS_DIR: ${{ github.workspace }}/migrations
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: backend/go.mod, cache-dependency-path: backend/go.sum }
+      - name: up, down to zero, up again (migrations must be reversible)
+        working-directory: backend
+        run: |
+          go run ./cmd/migrate up
+          go run ./cmd/migrate down 13
+          go run ./cmd/migrate up
+          go run ./cmd/migrate version

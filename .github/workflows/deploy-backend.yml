@@ -1,0 +1,33 @@
+name: Deploy backend
+on: workflow_dispatch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # requires a manual approval configured in GitHub
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+      - name: Roll out on the server
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          IMAGE: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "$SSH_KEY" > key
+          ssh -i key -o StrictHostKeyChecking=accept-new "deploy@$SSH_HOST" "
+            set -e
+            cd /opt/beeloy
+            export BACKEND_IMAGE='$IMAGE'
+            docker compose --profile prod -f infra/compose/docker-compose.yml pull migrate api content-sync
+            docker compose --profile prod -f infra/compose/docker-compose.yml run --rm migrate
+            docker compose --profile prod -f infra/compose/docker-compose.yml up -d api content-sync
+          "
