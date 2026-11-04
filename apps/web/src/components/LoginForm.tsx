@@ -1,4 +1,5 @@
 "use client";
+import { enabledSocial } from "@/lib/social";
 import { Alert, Anchor, Button, Checkbox, Collapse, PinInput, Stack, Text, TextInput, Title } from "@mantine/core";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -78,6 +79,7 @@ function Form() {
   const fe = fieldMessages(t, err);
   const onboarding = sp.get("step") === "onboarding";
   const oauthFailed = sp.get("error") === "oauth";
+  const providers = enabledSocial();
   const social = (p: "google" | "facebook") =>
     `/api/v1/auth/oauth/${p}/start?${new URLSearchParams({ locale, return_to: sanitizeReturnTo(sp.get("return_to"), `/${locale}`) }).toString()}`;
   const terms = (
@@ -112,9 +114,9 @@ function Form() {
           <Stack>
             <TextInput type="email" label={t("login.email")} value={email} onChange={(e) => setEmail(e.currentTarget.value)} required autoComplete="email" error={fe.email} />
             <Button type="submit" loading={busy} disabled={!email}>{t("login.send_code")}</Button>
-            <Text size="sm" ta="center">{t("login.or")}</Text>
-            <Button component="a" href={social("google")} variant="default">{t("login.google")}</Button>
-            <Button component="a" href={social("facebook")} variant="default">{t("login.facebook")}</Button>
+            {providers.length > 0 && <Text size="sm" ta="center">{t("login.or")}</Text>}
+            {providers.includes("google") && <Button component="a" href={social("google")} variant="default">{t("login.google")}</Button>}
+            {providers.includes("facebook") && <Button component="a" href={social("facebook")} variant="default">{t("login.facebook")}</Button>}
           </Stack>
         </form>
       ) : (

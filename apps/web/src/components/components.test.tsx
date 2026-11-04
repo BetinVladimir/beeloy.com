@@ -187,7 +187,15 @@ describe("LoginForm", () => {
       searchParams = new URLSearchParams();
     }
   });
-  it("offers e-mail code, Google and Facebook; the social buttons are plain navigations to the API", async () => {
+  it("hides the social buttons unless providers are enabled", async () => {
+    mockFetch();
+    renderApp(<LoginForm />);
+    await screen.findByLabelText(/^Email/);
+    expect(screen.queryByRole("link", { name: "Continue with Google" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Continue with Facebook" })).toBeNull();
+  });
+  it("offers e-mail code, Google and Facebook when enabled; the social buttons are plain navigations to the API", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SOCIAL_PROVIDERS", "google,facebook");
     mockFetch();
     renderApp(<LoginForm />);
     await screen.findByLabelText(/^Email/);
@@ -196,6 +204,7 @@ describe("LoginForm", () => {
     expect(g.getAttribute("href")).toMatch(/^\/api\/v1\/auth\/oauth\/google\/start\?/);
     expect(f.getAttribute("href")).toMatch(/^\/api\/v1\/auth\/oauth\/facebook\/start\?/);
     expect(g.getAttribute("href")).toContain("return_to=%2Fen");
+    vi.unstubAllEnvs();
   });
 });
 

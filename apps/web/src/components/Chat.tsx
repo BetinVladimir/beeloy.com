@@ -88,11 +88,19 @@ export function ChatView({ id }: { id: string }) {
           if (c) break;
         }
       }
-      if (c) setConv(c); else setError(new ApiError(404, "not_found", "not found"));
-    } catch (e) { setError(e as ApiError); }
+      if (c) { setConv(c); setError(null); } else setError(new ApiError(404, "not_found", "not found"));
+    } catch (e) {
+      // a dropped network is not a verdict on the conversation: keep what is shown and retry when the browser is back online
+      if (e instanceof ApiError) setError(e);
+    }
   }, [id]);
 
   useEffect(() => { if (ready) void loadConv(); }, [ready, loadConv, tick]);
+  useEffect(() => {
+    const again = () => { if (ready) void loadConv(); };
+    window.addEventListener("online", again);
+    return () => window.removeEventListener("online", again);
+  }, [ready, loadConv]);
 
   useEffect(() => {
     if (!ready) return;
@@ -102,7 +110,7 @@ export function ChatView({ id }: { id: string }) {
         setOldest(r.data[0]?.seq ?? null);
         setMore(r.data.length === 30);
       })
-      .catch((e) => setError(e as ApiError));
+      .catch((e) => { if (e instanceof ApiError) setError(e); });
   }, [ready, id]);
 
   const lastSeq = Math.max(0, ...messages.filter((m) => !m.pending && !m.failed).map((m) => m.seq));

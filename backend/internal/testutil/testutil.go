@@ -209,6 +209,11 @@ var (
 
 func startS3() {
 	ctx := context.Background()
+	// TEST_S3_ENDPOINT (+ TEST_S3_ACCESS_KEY / TEST_S3_SECRET_KEY) runs the suite against an existing S3-compatible server, e.g. the MinIO of compose.dev.yml.
+	if ep := os.Getenv("TEST_S3_ENDPOINT"); ep != "" {
+		s3Conf = s3store.Config{Endpoint: ep, Region: "us-east-1", AccessKey: os.Getenv("TEST_S3_ACCESS_KEY"), SecretKey: os.Getenv("TEST_S3_SECRET_KEY")}
+		return
+	}
 	c, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        "adobe/s3mock:latest",

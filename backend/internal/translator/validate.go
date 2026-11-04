@@ -9,7 +9,7 @@ import (
 
 var (
 	urlRe         = regexp.MustCompile(`https?://[^\s)\]>"']+`)
-	fenceRe       = regexp.MustCompile("(?s)```.*?```")
+	fenceRe       = regexp.MustCompile("(?s)```.*?```|~~~.*?~~~")
 	headingRe     = regexp.MustCompile(`(?m)^#{1,6} `)
 	placeholderRe = regexp.MustCompile(`\{[a-zA-Z_][a-zA-Z0-9_]*\}`)
 )
@@ -29,7 +29,7 @@ func ValidateChunk(src, dst, dstLocale string) error {
 	if sortedSet(urlRe, src) != sortedSet(urlRe, dst) {
 		return fmt.Errorf("URLs differ from the source")
 	}
-	if strings.Count(src, "```") != strings.Count(dst, "```") {
+	if strings.Count(src, "```") != strings.Count(dst, "```") || strings.Count(src, "~~~") != strings.Count(dst, "~~~") {
 		return fmt.Errorf("number of code fences differs")
 	}
 	if fenceBlocks(src) != fenceBlocks(dst) {

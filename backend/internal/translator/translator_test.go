@@ -397,3 +397,19 @@ func TestRunUIFailureWritesNoManifest(t *testing.T) {
 		t.Fatal("incomplete release must be refused")
 	}
 }
+
+func TestValidateChunkTildeFences(t *testing.T) {
+	src := "Read the manual first.\n\n~~~\ncode()\n~~~\n\nThen continue."
+	ok := "Lies zuerst das Handbuch.\n\n~~~\ncode()\n~~~\n\nDann weitermachen."
+	if err := translator.ValidateChunk(src, ok, "de"); err != nil {
+		t.Fatalf("good translation rejected: %v", err)
+	}
+	for name, dst := range map[string]string{
+		"changed code": strings.Replace(ok, "code()", "kode()", 1),
+		"lost fence":   strings.Replace(ok, "~~~\ncode()\n~~~", "code()", 1),
+	} {
+		if translator.ValidateChunk(src, dst, "de") == nil {
+			t.Errorf("%s must be rejected", name)
+		}
+	}
+}

@@ -1,4 +1,5 @@
 "use client";
+import { enabledSocial } from "@/lib/social";
 import { Alert, Button, Group, Select, Stack, Switch, Tabs, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useEffect, useState } from "react";
@@ -41,7 +42,7 @@ function LoginMethods() {
           <Button size="xs" variant="default" disabled={items.length < 2} onClick={() => void unlink(i.id)}>{t("settings.identities.unlink")}</Button>
         </Group>
       ))}
-      {PROVIDERS.filter((p) => !has(p)).map((p) => (
+      {PROVIDERS.filter((p) => enabledSocial().includes(p) && !has(p)).map((p) => (
         <Group key={p}><Button variant="default" onClick={() => void link(p)}>{t("settings.identities.link", { provider: providerLabel(p) })}</Button></Group>
       ))}
       {err && <Alert color="red" role="alert">{err.status === 409 ? t("settings.identities.last") : errorText(t, err)}</Alert>}

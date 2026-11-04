@@ -10,12 +10,26 @@ services:
     ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
     networks: [internal]
   s3:
-    # S3-compatible storage for local development (MinIO's public images are no longer available)
-    image: adobe/s3mock:latest
+    # MinIO (supports If-None-Match / If-Match conditional writes). Official minio/* images are no longer published,
+    # so the Chainguard build is used.
+    image: cgr.dev/chainguard/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
     environment:
-      COM_ADOBE_TESTING_S3MOCK_INITIALBUCKETS: beeloy
-    ports: ["127.0.0.1:9090:9090"]
+      MINIO_ROOT_USER: dev
+      MINIO_ROOT_PASSWORD: dev-minio-secret
+    volumes: [minio:/data]
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     networks: [internal]
+  s3-init:
+    # creates the bucket; the image has no shell, so the alias comes from MC_HOST_local and failures are retried
+    image: cgr.dev/chainguard/minio-client:latest
+    entrypoint: ["/usr/bin/mc"]
+    command: ["mb", "--ignore-existing", "local/beeloy"]
+    environment:
+      MC_HOST_local: http://dev:dev-minio-secret@s3:9000
+    depends_on: [s3]
+    networks: [internal]
+    restart: on-failure
   api:
     ports: ["127.0.0.1:8080:8080", "127.0.0.1:9091:9090"]
     environment: &dev
@@ -30,15 +44,21 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_FROM: no-reply@beeloy.local
-      S3_ENDPOINT: http://s3:9090
+      S3_ENDPOINT: http://s3:9000
       S3_REGION: us-east-1
       S3_BUCKET: beeloy
       S3_ACCESS_KEY: dev
-      S3_SECRET_KEY: dev
-    depends_on: [mailpit, s3]
+      S3_SECRET_KEY: dev-minio-secret
+    depends_on:
+      mailpit: {condition: service_started}
+      s3-init: {condition: service_completed_successfully}
   content-sync:
     environment: *dev
-    depends_on: [s3]
+    depends_on:
+      s3-init: {condition: service_completed_successfully}
   migrate:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-beeloy}:${POSTGRES_PASSWORD:-beeloy}@postgres:5432/${POSTGRES_DB:-beeloy}?sslmode=disable
+
+volumes:
+  minio:
