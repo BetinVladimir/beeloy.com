@@ -101,4 +101,4 @@ SMTP, S3-бакеты и ключи (3 набора), DNS `api-site`, серти
 - Полный стенд в Docker с MinIO (postgres, redis, mailpit, minio, api, content-sync): Playwright 7/7, `s3store`/`articles`/`contentsync`/`translator`/`privacy`/`e2e` с `-race` на MinIO — прошли.
 - Найдено e2e: при offline ошибка сети в `Chat.tsx` навсегда закрывала диалог — исправлено (сетевая ошибка не блокирует, перезагрузка по `online`).
 - Найдено: `cmd/api` не подключал S3-хранилище (статьи были отключены) — исправлено.
-- Пустой бакет: content-sync пишет `ERROR manifest: object not found` каждый цикл, пока не опубликован i18n-манифест.
+- Пустой бакет: ошибка `manifest: object not found` в prod намеренно остаётся (отсутствие релиза должно быть заметно). Для dev добавлен шаблонный релиз `seed-template` (эталон `en` под всеми 26 локалями, создаётся `PutIfAbsent`, манифест последним): `SEED_UI_TEMPLATE=true` в `compose.dev.yml` или `content-sync seed-ui`; реальные переводы публикуются translator под новой версией. Тест `TestSeedTemplate…`.

@@ -22,7 +22,9 @@ import (
 
 	"beeloy.com/backend/internal/config"
 	"beeloy.com/backend/internal/contentsync"
+	"beeloy.com/backend/internal/i18nstore"
 	"beeloy.com/backend/internal/identity"
+	"beeloy.com/backend/internal/locales"
 	"beeloy.com/backend/internal/platform/db"
 	"beeloy.com/backend/internal/platform/logx"
 	"beeloy.com/backend/internal/platform/maintenance"
@@ -40,7 +42,7 @@ func main() {
 
 func run(args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: content-sync run | once ui|articles | rollback <version> | status")
+		return errors.New("usage: content-sync run | once ui|articles | seed-ui | rollback <version> | status")
 	}
 	cfg, err := config.Load()
 	if err != nil {
@@ -57,7 +59,7 @@ func run(args []string) error {
 	store := &contentsync.Store{Pool: pool}
 	ui := &contentsync.Syncer{Store: store}
 
-	needS3 := args[0] == "run" || args[0] == "once"
+	needS3 := args[0] == "run" || args[0] == "once" || args[0] == "seed-ui"
 	var art *contentsync.ArticleSyncer
 	if needS3 {
 		if err := cfg.RequireS3(); err != nil {
@@ -69,6 +71,15 @@ func run(args []string) error {
 		}
 		ui.Src = src
 		art = &contentsync.ArticleSyncer{Src: src, Pool: pool, Store: store, Slugs: &identity.SlugService{Pool: pool}}
+	}
+
+	// SEED_UI_TEMPLATE=true (dev compose): publish the template release once if the bucket has no i18n manifest.
+	if needS3 && os.Getenv("SEED_UI_TEMPLATE") == "true" {
+		if ok, err := contentsync.SeedTemplate(ctx, ui.Src, i18nstore.FallbackEN(), locales.Source(), locales.Codes()); err != nil {
+			return fmt.Errorf("seed: %w", err)
+		} else if ok {
+			slog.Info("content-sync: published the template UI release", "version", contentsync.SeedVersion)
+		}
 	}
 
 	switch args[0] {
@@ -96,6 +107,10 @@ func run(args []string) error {
 			fmt.Printf("%s  %-6s %-24s %s\n", r.StartedAt.Format(time.RFC3339), res, ver, er)
 		}
 		return nil
+	case "seed-ui":
+		ok, err := contentsync.SeedTemplate(ctx, ui.Src, i18nstore.FallbackEN(), locales.Source(), locales.Codes())
+		fmt.Printf("template release published: %v\n", ok)
+		return err
 	case "rollback":
 		if len(args) < 2 {
 			return errors.New("rollback needs a version")

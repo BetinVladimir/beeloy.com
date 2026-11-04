@@ -21,6 +21,9 @@ import (
 //go:embed fallback_en.json
 var fallbackEN []byte
 
+// FallbackEN returns the embedded English reference dictionary (a copy).
+func FallbackEN() []byte { return append([]byte(nil), fallbackEN...) }
+
 const versionTTL = 30 * time.Second
 
 type Store struct {

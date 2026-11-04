@@ -271,3 +271,25 @@ func TestValidateUnits(t *testing.T) {
 		t.Error("non-string value must fail")
 	}
 }
+
+func TestSeedTemplateActivatesOnEmptyBucketAndNeverOverwrites(t *testing.T) {
+	syncer, st, store := newSyncer(t)
+	ctx := context.Background()
+	ref := []byte(`{"app.name":"Beeloy","greeting":"Hello, {name}"}`)
+	if _, _, err := syncer.RunOnce(ctx); err == nil {
+		t.Fatal("an empty bucket has no manifest")
+	}
+	ok, err := contentsync.SeedTemplate(ctx, st, ref, locales.Source(), locales.Codes())
+	if err != nil || !ok {
+		t.Fatalf("seed: %v %v", ok, err)
+	}
+	if res, v, err := syncer.RunOnce(ctx); err != nil || res != contentsync.ResultOK || v != contentsync.SeedVersion {
+		t.Fatalf("sync: %v %v %v", res, v, err)
+	}
+	if active(t, store) != contentsync.SeedVersion {
+		t.Error("template release must become active")
+	}
+	if ok, err := contentsync.SeedTemplate(ctx, st, ref, locales.Source(), locales.Codes()); err != nil || ok {
+		t.Errorf("second seed must be a no-op: %v %v", ok, err)
+	}
+}
