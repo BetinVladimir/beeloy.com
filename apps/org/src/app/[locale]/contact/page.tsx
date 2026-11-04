@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { createT, loadMessages } from "@/lib/i18n";
 import { buildMetadata } from "@/lib/seo";
 
-// TODO-CONTENT: the real contact address is supplied by the owner (CONTACT_EMAIL); until then a placeholder is shown.
-const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? "TODO-CONTACT@beeloy.org";
+// The public contact address; CONTACT_EMAIL overrides it for a staging deployment.
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL ?? "info@beeloy.org";
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
   const { locale } = await params;

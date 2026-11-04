@@ -1,8 +1,9 @@
 import { Title } from "@mantine/core";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Markdown } from "@/components/Markdown";
 import { loadMessages, createT } from "@/lib/i18n";
+import { legalUrl } from "@/lib/legal";
 import { isLocale } from "@/lib/locales";
 import { buildMetadata } from "@/lib/seo";
 
@@ -18,6 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function Page({ params }: { params: Promise<{ locale: string; doc: string }> }) {
   const { locale, doc } = await params;
   if (!isLocale(locale) || !DOCS.includes(doc)) notFound();
+  const external = legalUrl(locale, doc);
+  if (external) redirect(external); // the maintained text lives on the legal site
   const t = createT(await loadMessages(locale), locale);
   return (
     <>

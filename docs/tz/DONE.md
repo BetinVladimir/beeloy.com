@@ -34,7 +34,7 @@
 - **Content Sync UI**: правило «ручной rollback не отменяется следующим polling» (06) не проверялось.
 - Уведомление оператора о нарушении неизменяемости — только запись в журнал и счётчик failed.
 - `ValidateChunk` переводчика проверяет ограждения только ``` (не ~~~).
-- Реальные внешние проверки (DNS, Origin CA, AOP, SMTP, Ollama, юридические тексты `TODO-LEGAL`, контакт `TODO-CONTACT`, формулировка миссии) остаются за оператором.
+- Реальные внешние проверки (DNS, Origin CA, AOP, SMTP, Ollama, правила сообщества — документа на legal-сайте нет, остаётся `TODO-LEGAL`) остаются за оператором.
 
 
 ---
@@ -77,7 +77,7 @@
 
 ## Что требует человека до запуска (см. `PLAN.md`, `infra/CLOUDFLARE.md`, `infra/OPERATIONS.md`)
 SMTP, S3-бакеты и ключи (3 набора), DNS `api-site`, сертификат Origin CA, Authenticated Origin Pulls, секреты Worker, Ollama и модель,
-юридические тексты (`TODO-LEGAL` в `contracts/messages/en.json` и переводах), проверка выборки машинных переводов словаря.
+правила сообщества (`legal.rules.body` остаётся `TODO-LEGAL`), перевод миссии на 26 языков, проверка выборки машинных переводов словаря.
 
 ## Сводка по задачам
 | Задачи | Статус |
@@ -102,3 +102,19 @@ SMTP, S3-бакеты и ключи (3 набора), DNS `api-site`, серти
 - Найдено e2e: при offline ошибка сети в `Chat.tsx` навсегда закрывала диалог — исправлено (сетевая ошибка не блокирует, перезагрузка по `online`).
 - Найдено: `cmd/api` не подключал S3-хранилище (статьи были отключены) — исправлено.
 - Пустой бакет: ошибка `manifest: object not found` в prod намеренно остаётся (отсутствие релиза должно быть заметно). Для dev добавлен шаблонный релиз `seed-template` (эталон `en` под всеми 26 локалями, создаётся `PutIfAbsent`, манифест последним): `SEED_UI_TEMPLATE=true` в `compose.dev.yml` или `content-sync seed-ui`; реальные переводы публикуются translator под новой версией. Тест `TestSeedTemplate…`.
+
+## Дополнение: живые проверки на стенде (Docker, MinIO)
+
+Playwright 15/15 на стенде `compose.dev.yml` (Postgres, Redis, Mailpit, MinIO, api, content-sync, fake-oauth):
+
+- `content.spec.ts` — статьи через живой API: файлы `manifest.json`/`rev-N` в MinIO, публикация, подмена файла ревизии → событие аудита `content.integrity_violation` (одно на сутки на файл) и ERROR в логе, страница отдаёт одобренный текст; прямая загрузка в бакет → регистрация в `in_review`, скрыта до публикации. Словари: новый релиз подхватывается; `rollback` при манифесте на другой версии → `rollback conflict` с инструкцией; после возврата манифеста откат принимается и три+ цикла polling его не отменяют.
+- `backup.spec.ts` — настоящие restic + rclone + MinIO: `backup.sh` замораживает запись (503 на POST, GET работает), `restore-test.sh` → OK, purge аккаунта после копии пишет зашифрованный объект в бакет журнала, restore старой копии в чистый Postgres + `api replay-deletions` повторно применяет удаление.
+- `social.spec.ts` — Google/Facebook на локальном поддельном провайдере (`infra/dev/fake-oauth`, только dev): онбординг с условиями, имя «User»/случайный slug, повторный вход, свой @slug, не сливается по e-mail, отказ провайдера, link/unlink и запрет удалить последний способ.
+- `infra/scripts/check-ingress.sh` — настоящий `Caddyfile` с AOP на одноразовых сертификатах: нет клиентского сертификата → отказ; публичный GET берёт IP из `CF-Connecting-IP`, подмена `X-Real-Client-IP` и секрет отбрасываются; staging-API: без секрета 403, с секретом 401, напрямую мимо Caddy 403 (даже публичный GET); `Location` и `Set-Cookie` (HttpOnly) проходят; SSE приходит без буферизации.
+
+Найдено и исправлено: сетевая ошибка закрывала диалог (Chat.tsx); `pg_isready` по сокету в `restore-test.sh` проходил раньше времени; rollback словарей теперь требует манифест в S3 на целевой версии; уведомление оператору о нарушении неизменяемости (аудит + ERROR).
+
+Ссылки: Terms/Privacy/Cookies — `legal.beeloy.org/{locale}/…` (для `uk` — `en`), контакт `info@beeloy.org`, страница `/mission` на beeloy.org из `docs/ Mission.md`. Правила сообщества остаются `TODO-LEGAL` (документа на legal-сайте нет).
+
+**По-прежнему не проверено:** Google/Facebook с настоящими ключами (проверен только поток на заглушке); настоящий Cloudflare (Worker→Cloudflare→Caddy, реальный `CF-Connecting-IP`); `opennextjs preview` (workerd) для изменённого прокси; перевод миссии на 25 языков (есть английский эталон).
+

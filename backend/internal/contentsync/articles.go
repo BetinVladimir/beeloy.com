@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"beeloy.com/backend/internal/articles"
+	"beeloy.com/backend/internal/audit"
 	"beeloy.com/backend/internal/identity"
 	"beeloy.com/backend/internal/locales"
 	"beeloy.com/backend/internal/platform/db"
@@ -36,6 +37,31 @@ type ArticleSyncer struct {
 	Registry registry.Repo
 	Kick     func()
 	Log      *slog.Logger
+}
+
+// ImmutabilityError: a registered revision file was replaced in the bucket. The article keeps serving what the database knows.
+type ImmutabilityError struct {
+	Key    string
+	Rev    int
+	Locale string
+}
+
+func (e *ImmutabilityError) Error() string {
+	return fmt.Sprintf("immutability violated: rev-%d/%s changed in the bucket", e.Rev, e.Locale)
+}
+
+// alertIntegrity tells the operator: an ERROR log line and an audit event (visible to admins in the audit log),
+// at most one event per article and file per day so that the one-minute retry does not flood the log.
+func (a *ArticleSyncer) alertIntegrity(ctx context.Context, id uuid.UUID, iv *ImmutabilityError) {
+	a.log().Error("content-sync: INTEGRITY VIOLATION, revision file changed in the bucket", "article", id, "key", iv.Key)
+	var recent bool
+	if err := a.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audit_events WHERE action=$1 AND target_id=$2 AND meta->>'key'=$3 AND created_at > now() - interval '24 hours')`,
+		audit.ActionContentIntegrity, id.String(), iv.Key).Scan(&recent); err != nil || recent {
+		return
+	}
+	if err := (audit.Service{}).Record(ctx, a.Pool, audit.Input{Action: audit.ActionContentIntegrity, TargetType: "article", TargetID: id.String(), Meta: map[string]any{"key": iv.Key, "rev": iv.Rev, "locale": iv.Locale}}); err != nil {
+		a.log().Error("content-sync: cannot record the integrity event", "err", err)
+	}
 }
 
 func fingerprint(objs []s3store.Object) string {
@@ -200,7 +226,7 @@ func (a *ArticleSyncer) syncOne(ctx context.Context, id uuid.UUID, objs []s3stor
 			sum := sha256.Sum256(b)
 			if old, ok := knownSHA[fmt.Sprintf("%d/%s", j.rev, j.locale)]; ok {
 				if old != hex.EncodeToString(sum[:]) {
-					return fmt.Errorf("immutability violated: rev-%d/%s changed in the bucket", j.rev, j.locale)
+					return &ImmutabilityError{Key: articles.LocaleKey(id, j.rev, j.locale), Rev: j.rev, Locale: j.locale}
 				}
 				return nil // unchanged, already registered
 			}
@@ -217,6 +243,10 @@ func (a *ArticleSyncer) syncOne(ctx context.Context, id uuid.UUID, objs []s3stor
 	}
 	// any unreadable, invalid or altered file fails the whole article: the fingerprint is not stored, so the next run retries
 	if err := eg.Wait(); err != nil {
+		var iv *ImmutabilityError
+		if errors.As(err, &iv) {
+			a.alertIntegrity(ctx, id, iv)
+		}
 		return false, err
 	}
 

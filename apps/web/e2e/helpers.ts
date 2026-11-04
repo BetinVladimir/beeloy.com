@@ -58,3 +58,51 @@ export function bootstrapAdmin(email: string): void {
     /* an administrator already exists */
   }
 }
+
+const COMPOSE_NET = process.env.COMPOSE_NET ?? "beeloy_internal";
+const S3_ALIAS = process.env.E2E_S3_ALIAS ?? "http://dev:dev-minio-secret@s3:9000";
+const MC_IMAGE = "cgr.dev/chainguard/minio-client:latest";
+
+/** Runs `mc` (MinIO client) on the compose network against the dev MinIO; `input` is piped to stdin. */
+export function mc(args: string[], input?: string): string {
+  return execFileSync("docker", ["run", "--rm", ...(input !== undefined ? ["-i"] : []), "--network", COMPOSE_NET, "-e", `MC_HOST_l=${S3_ALIAS}`, MC_IMAGE, ...args], { input, encoding: "utf8" });
+}
+
+/** SQL against the dev Postgres container. Returns the raw output. */
+export function psql(sql: string): string {
+  return execFileSync("docker", ["exec", "beeloy-postgres-1", "psql", "-U", "beeloy", "-tA", "-c", sql], { encoding: "utf8" });
+}
+
+export function grantRole(userId: string, role: "admin" | "moderator" | "editor"): void {
+  psql(`INSERT INTO role_bindings (id, user_id, role) VALUES (gen_random_uuid(), '${userId}', '${role}') ON CONFLICT DO NOTHING`);
+}
+
+/** Calls the API through the page's own session and CSRF header (like the web app does). */
+export async function call<T = any>(page: Page, method: string, path: string, body?: unknown): Promise<{ status: number; data: T; raw: any }> {
+  return page.evaluate(
+    async ({ method, path, body }) => {
+      const r = await fetch(path, { method, credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Requested-With": "beeloy" }, body: body === undefined ? undefined : JSON.stringify(body) });
+      const raw = await r.json().catch(() => ({}));
+      return { status: r.status, data: raw.data, raw };
+    },
+    { method, path, body },
+  );
+}
+
+export function containerLogs(name: string): string {
+  return execFileSync("docker", ["logs", name], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
+const FAKE_OAUTH = process.env.FAKE_OAUTH_URL ?? "http://localhost:4010";
+
+/** Chooses who the local stand-in for Google/Facebook (infra/dev/fake-oauth) signs in next. */
+export async function providerSignsIn(who: { sub: string; email?: string; name?: string } | { deny: true }): Promise<void> {
+  const r = await fetch(`${FAKE_OAUTH}/__identity`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(who) });
+  if (!r.ok) throw new Error(`fake-oauth: ${r.status}`);
+}
+
+export async function signOut(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Account" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page.getByRole("link", { name: /Sign in|Log in/i }).first()).toBeVisible();
+}

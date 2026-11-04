@@ -13,7 +13,7 @@ export default defineConfig({
     url: "http://localhost:3000/en",
     reuseExistingServer: true,
     timeout: 120_000,
-    env: { API_ORIGIN: "http://localhost:8080", PROXY_SHARED_SECRET: "dev-proxy-secret-dev-proxy-secret-00", NEXT_PUBLIC_SITE_URL: "http://localhost:3000" },
+    env: { API_ORIGIN: "http://localhost:8080", PROXY_SHARED_SECRET: "dev-proxy-secret-dev-proxy-secret-00", NEXT_PUBLIC_SITE_URL: "http://localhost:3000", NEXT_PUBLIC_SOCIAL_PROVIDERS: "google,facebook" },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 });

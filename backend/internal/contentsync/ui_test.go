@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -68,6 +69,7 @@ func TestSyncActivatesAndIsIdempotent(t *testing.T) {
 	sy, st, store := newSyncer(t)
 	ctx := context.Background()
 	publishRelease(t, st, "2026-11-04.1", nil)
+	manifestV1, _ := st.Get(ctx, "i18n/manifest.json", 1<<20)
 	res, v, err := sy.RunOnce(ctx)
 	if err != nil || res != contentsync.ResultOK || v != "2026-11-04.1" || active(t, store) != "2026-11-04.1" {
 		t.Fatalf("first run: %v %v %v", res, v, err)
@@ -90,10 +92,21 @@ func TestSyncActivatesAndIsIdempotent(t *testing.T) {
 	if old != "superseded" {
 		t.Errorf("old release status: %s", old)
 	}
-	// rollback without S3
-	st.Delete("i18n/manifest.json")
+	// a rollback is refused while the S3 manifest still points to the newer release (polling would undo it)
+	if err := sy.Rollback(ctx, "2026-11-04.1"); !errors.Is(err, contentsync.ErrRollbackConflict) || active(t, store) != "2026-11-05.1" {
+		t.Fatalf("rollback without a restored manifest must conflict: %v", err)
+	}
+	// the operator puts the old manifest back; now the rollback is accepted and polling keeps it
+	if err := st.Put(ctx, "i18n/manifest.json", manifestV1, "application/json"); err != nil {
+		t.Fatal(err)
+	}
 	if err := sy.Rollback(ctx, "2026-11-04.1"); err != nil || active(t, store) != "2026-11-04.1" {
 		t.Fatalf("rollback: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, _, err := sy.RunOnce(ctx); err != nil || active(t, store) != "2026-11-04.1" {
+			t.Fatalf("polling changed the rolled-back release: %v %s", err, active(t, store))
+		}
 	}
 	if err := sy.Rollback(ctx, "nope"); err == nil {
 		t.Error("rollback to unknown version must fail")

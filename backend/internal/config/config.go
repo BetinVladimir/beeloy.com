@@ -42,7 +42,9 @@ type Config struct {
 	TermsVersion                           string
 	GoogleClientID, GoogleClientSecret     string
 	FacebookClientID, FacebookClientSecret string
-	PrivacyVersion                         string
+	// OAuthDev* point both social providers at a local stand-in (infra/dev/fake-oauth); honoured in APP_ENV=dev only.
+	OAuthDevAuthURL, OAuthDevTokenURL, OAuthDevUserInfoURL string
+	PrivacyVersion                                         string
 
 	LogLevel          string
 	TrustedProxyCIDRs []netip.Prefix
@@ -134,6 +136,10 @@ func LoadFrom(get func(string) string) (*Config, error) {
 
 	c.GoogleClientID, c.GoogleClientSecret = opt("GOOGLE_CLIENT_ID", ""), opt("GOOGLE_CLIENT_SECRET", "")
 	c.FacebookClientID, c.FacebookClientSecret = opt("FACEBOOK_CLIENT_ID", ""), opt("FACEBOOK_CLIENT_SECRET", "")
+	c.OAuthDevAuthURL, c.OAuthDevTokenURL, c.OAuthDevUserInfoURL = opt("OAUTH_DEV_AUTH_URL", ""), opt("OAUTH_DEV_TOKEN_URL", ""), opt("OAUTH_DEV_USERINFO_URL", "")
+	if c.AppEnv != "dev" && (c.OAuthDevAuthURL != "" || c.OAuthDevTokenURL != "" || c.OAuthDevUserInfoURL != "") {
+		errs = append(errs, "OAUTH_DEV_* may only be set when APP_ENV=dev")
+	}
 	c.TermsVersion = opt("TERMS_VERSION", "")
 	c.PrivacyVersion = opt("PRIVACY_VERSION", "")
 	if dev {

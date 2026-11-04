@@ -188,3 +188,13 @@ describe("validIp", () => {
     expect(validIp("")).toBeNull();
   });
 });
+
+describe("legalUrl", () => {
+  it("sends Terms, Privacy and Cookies to the legal site; unsupported languages get English; rules stay in the app", async () => {
+    const { legalUrl } = await import("./legal");
+    expect(legalUrl("bg", "terms")).toBe("https://legal.beeloy.org/bg/terms");
+    expect(legalUrl("uk", "cookies")).toBe("https://legal.beeloy.org/en/cookies");
+    expect(legalUrl("en", "rules")).toBeNull();
+    expect(legalUrl("en", "x")).toBeNull();
+  });
+});

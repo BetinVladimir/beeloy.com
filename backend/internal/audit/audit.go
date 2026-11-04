@@ -35,6 +35,8 @@ const (
 	ActionCommentHide          = "comment.hide"
 	ActionCommentUnhide        = "comment.unhide"
 	ActionReportViewSnapshot   = "report.view_snapshot"
+	// ActionContentIntegrity: a revision file in S3 no longer matches the sha256 registered for it (system event, no actor).
+	ActionContentIntegrity = "content.integrity_violation"
 )
 
 type Event struct {

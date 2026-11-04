@@ -25,3 +25,17 @@ describe("org lib", () => {
     expect(orgUrl("de", "/about")).toMatch(/^https?:\/\/[^/]+\/de\/about$/);
   });
 });
+
+describe("legal links and mission", async () => {
+  const { legalUrl } = await import("./legal");
+  it("links Terms/Privacy/Cookies to the legal site and falls back to English for unsupported languages", () => {
+    expect(legalUrl("de", "terms")).toBe("https://legal.beeloy.org/de/terms");
+    expect(legalUrl("uk", "privacy")).toBe("https://legal.beeloy.org/en/privacy");
+    expect(legalUrl("en", "rules")).toBeNull();
+  });
+  it("has the whole mission in the reference dictionary", () => {
+    const f = fallback as Record<string, string>;
+    for (let n = 1; n <= 6; n++) expect(f[`org.mission.s${n}.title`] && f[`org.mission.s${n}.body`]).toBeTruthy();
+    expect(f["org.mission.motto"]).toContain("Trust has to be earned");
+  });
+});

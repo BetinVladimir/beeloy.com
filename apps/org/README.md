@@ -8,4 +8,4 @@ pnpm install && pnpm dev        # http://localhost:3100
 pnpm typecheck && pnpm lint && pnpm test && pnpm build
 pnpm build:cf                   # сборка Worker; деплой — вручную (infra/CLOUDFLARE.md)
 ```
-Тексты (`org.*` ключи) лежат в `contracts/messages/en.json`; формулировка миссии — рабочий черновик, финальный текст утверждает владелец проекта. Контактный адрес — `CONTACT_EMAIL` (иначе заглушка `TODO-CONTACT@beeloy.org`).
+Тексты (`org.*` ключи) лежат в `contracts/messages/en.json`; страница `/mission` — текст из `docs/ Mission.md` (английский эталон `org.mission.*`; переводы на остальные языки выпускает translator). Контактный адрес — `CONTACT_EMAIL` (по умолчанию `info@beeloy.org`).

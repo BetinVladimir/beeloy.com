@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createT, loadMessages } from "@/lib/i18n";
 import { buildMetadata, comUrl } from "@/lib/seo";
 
@@ -16,6 +17,7 @@ export default async function About({ params }: { params: Promise<{ locale: stri
       <h1>{t("org.about.title")}</h1>
       <p>{t("org.about.body")}</p>
       <p>{t("org.about.languages")}</p>
+      <p><Link href={`/${locale}/mission`}>{t("org.about.mission_link")}</Link></p>
       <a className="button" href={comUrl(locale)}>{t("org.home.cta")}</a>
     </>
   );

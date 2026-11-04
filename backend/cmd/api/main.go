@@ -131,6 +131,14 @@ func run(args []string) error {
 			}
 			fmt.Println("administrator created; sign in with the e-mail code")
 			return nil
+		case "run-job":
+			// Runs one background job once (operations, tests): api run-job PurgeDeletedAccounts
+			if len(args) < 2 {
+				return errors.New("run-job needs a job name")
+			}
+			ran, err := srv.Jobs.RunTask(ctx, args[1])
+			fmt.Printf("job %s ran=%v\n", args[1], ran)
+			return err
 		case "replay-deletions":
 			// Run after restoring PostgreSQL from a backup and before opening traffic (infra/OPERATIONS.md).
 			if srv.Privacy.Journal == nil {

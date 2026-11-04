@@ -28,7 +28,8 @@ done < "$DIR/inventory.sha256"
 
 # 2. restore PostgreSQL
 docker run -d --name "$NAME" -e POSTGRES_PASSWORD=restore -e POSTGRES_DB=restore postgres:17-alpine >/dev/null
-for _ in $(seq 1 30); do docker exec "$NAME" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+# -h 127.0.0.1: the temporary init server of the image listens on the socket only, so a socket check would pass too early
+for _ in $(seq 1 60); do docker exec "$NAME" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec -i "$NAME" pg_restore -U postgres -d restore --no-owner < "$DIR/beeloy.dump"
 
 EXPECT="$(cat "$DIR/SCHEMA_VERSION")"

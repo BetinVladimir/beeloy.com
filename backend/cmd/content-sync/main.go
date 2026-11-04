@@ -59,7 +59,7 @@ func run(args []string) error {
 	store := &contentsync.Store{Pool: pool}
 	ui := &contentsync.Syncer{Store: store}
 
-	needS3 := args[0] == "run" || args[0] == "once" || args[0] == "seed-ui"
+	needS3 := args[0] == "run" || args[0] == "once" || args[0] == "seed-ui" || args[0] == "rollback"
 	var art *contentsync.ArticleSyncer
 	if needS3 {
 		if err := cfg.RequireS3(); err != nil {

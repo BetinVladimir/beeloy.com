@@ -174,6 +174,12 @@ func (s *Syncer) requiredLocales() []string {
 }
 
 // Rollback re-activates a known release (superseded or active) without touching S3.
+// ErrRollbackConflict means the S3 manifest does not point at the version being rolled back to.
+var ErrRollbackConflict = errors.New("rollback conflict")
+
+// Rollback activates a stored release again. The next poll would otherwise follow whatever i18n/manifest.json says,
+// so a rollback is accepted only when the manifest already points at the target version; otherwise the operator is told
+// to restore the manifest first (06-content-sync, «Кэш, rollback»). No release files are downloaded.
 func (s *Syncer) Rollback(ctx context.Context, version string) error {
 	st, found, err := s.Store.GetRelease(ctx, version)
 	if err != nil {
@@ -181,6 +187,22 @@ func (s *Syncer) Rollback(ctx context.Context, version string) error {
 	}
 	if !found || (st != "superseded" && st != "active") {
 		return fmt.Errorf("release %q cannot be rolled back to (status %q)", version, st)
+	}
+	if s.Src == nil {
+		return errors.New("rollback needs access to S3 to confirm i18n/manifest.json")
+	}
+	raw, err := s.Src.Get(ctx, manifestKey, maxManifestUI)
+	var m Manifest
+	if err == nil {
+		err = json.Unmarshal(raw, &m)
+	}
+	if err != nil || m.Version != version {
+		cur := m.Version
+		if cur == "" {
+			cur = "(unreadable)"
+		}
+		return fmt.Errorf("%w: i18n/manifest.json points to %s, not to %s; first put the manifest of release %s back into S3 (releases are kept under i18n/releases/%s/), then repeat the rollback; otherwise the next sync would replace it",
+			ErrRollbackConflict, cur, version, version, version)
 	}
 	if err := s.Store.Activate(ctx, version); err != nil {
 		return err

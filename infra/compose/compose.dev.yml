@@ -24,12 +24,23 @@ services:
     # creates the bucket; the image has no shell, so the alias comes from MC_HOST_local and failures are retried
     image: cgr.dev/chainguard/minio-client:latest
     entrypoint: ["/usr/bin/mc"]
-    command: ["mb", "--ignore-existing", "local/beeloy"]
+    command: ["mb", "--ignore-existing", "local/beeloy", "local/journal", "local/backup"]
     environment:
       MC_HOST_local: http://dev:dev-minio-secret@s3:9000
     depends_on: [s3]
     networks: [internal]
     restart: on-failure
+  fake-oauth:
+    # stand-in for Google/Facebook (local only)
+    image: golang:1.26
+    working_dir: /app
+    command: ["go", "run", "/app/main.go"]
+    environment:
+      FAKE_CLIENT_SECRET: dev-fake-secret
+      GOCACHE: /tmp/gocache
+    volumes: ["../dev/fake-oauth:/app:ro"]
+    ports: ["127.0.0.1:4010:4010"]
+    networks: [internal]
   api:
     ports: ["127.0.0.1:8080:8080", "127.0.0.1:9091:9090"]
     environment: &dev
@@ -51,8 +62,26 @@ services:
       S3_SECRET_KEY: dev-minio-secret
       # content-sync publishes a template UI release (English text for all locales) if the bucket has no manifest
       SEED_UI_TEMPLATE: "true"
+      # social sign-in against the local stand-in (infra/dev/fake-oauth); the browser is sent to localhost:4010
+      GOOGLE_CLIENT_ID: dev-google-id
+      GOOGLE_CLIENT_SECRET: dev-fake-secret
+      FACEBOOK_CLIENT_ID: dev-facebook-id
+      FACEBOOK_CLIENT_SECRET: dev-fake-secret
+      OAUTH_DEV_AUTH_URL: http://localhost:4010/authorize
+      OAUTH_DEV_TOKEN_URL: http://fake-oauth:4010/token
+      OAUTH_DEV_USERINFO_URL: http://fake-oauth:4010/userinfo
+      # deletion journal in its own bucket (prod: a separate bucket with its own credentials); the key is a dev value
+      JOURNAL_S3_ENDPOINT: http://s3:9000
+      JOURNAL_S3_REGION: us-east-1
+      JOURNAL_S3_BUCKET: journal
+      JOURNAL_S3_ACCESS_KEY: dev
+      JOURNAL_S3_SECRET_KEY: dev-minio-secret
+      DELETION_JOURNAL_KEY: 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+      SYNC_INTERVAL_ARTICLES: 5s
+      SYNC_INTERVAL_UI: 10s
     depends_on:
       mailpit: {condition: service_started}
+      fake-oauth: {condition: service_started}
       s3-init: {condition: service_completed_successfully}
   content-sync:
     environment: *dev

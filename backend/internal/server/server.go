@@ -120,11 +120,17 @@ func New(d Deps) *Server {
 	if social == nil {
 		social = map[identity.Provider]identity.SocialProvider{}
 		cb := func(p string) string { return d.Cfg.PublicBaseURL + "/api/v1/auth/oauth/" + p + "/callback" }
+		devEndpoints := func(p *identity.OAuth2Provider) *identity.OAuth2Provider {
+			if d.Cfg.OAuthDevAuthURL != "" {
+				p.AuthURL, p.TokenURL, p.UserInfoURL = d.Cfg.OAuthDevAuthURL, d.Cfg.OAuthDevTokenURL, d.Cfg.OAuthDevUserInfoURL
+			}
+			return p
+		}
 		if d.Cfg.GoogleClientID != "" {
-			social[identity.ProviderGoogle] = identity.NewGoogle(d.Cfg.GoogleClientID, d.Cfg.GoogleClientSecret, cb("google"))
+			social[identity.ProviderGoogle] = devEndpoints(identity.NewGoogle(d.Cfg.GoogleClientID, d.Cfg.GoogleClientSecret, cb("google")))
 		}
 		if d.Cfg.FacebookClientID != "" {
-			social[identity.ProviderFacebook] = identity.NewFacebook(d.Cfg.FacebookClientID, d.Cfg.FacebookClientSecret, cb("facebook"))
+			social[identity.ProviderFacebook] = devEndpoints(identity.NewFacebook(d.Cfg.FacebookClientID, d.Cfg.FacebookClientSecret, cb("facebook")))
 		}
 	}
 	s.Identity.OAuth = &identity.OAuthService{RDB: d.Redis, Pool: d.Pool, Auth: s.Auth, Providers: social}

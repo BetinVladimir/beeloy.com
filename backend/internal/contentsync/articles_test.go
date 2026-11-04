@@ -258,6 +258,14 @@ func TestAlteredRevisionFileIsRejected(t *testing.T) {
 	if after != before {
 		t.Fatal("the registered hash must never follow a changed file")
 	}
+	// the operator is told: one audit event, not one per retry
+	a.sy.RunOnce(a.ctx)
+	a.sy.RunOnce(a.ctx)
+	var n int
+	a.env.Server.Pool.QueryRow(a.ctx, `SELECT count(*) FROM audit_events WHERE action='content.integrity_violation' AND target_id=$1`, id.String()).Scan(&n)
+	if n != 1 {
+		t.Fatalf("integrity events: %d, want exactly 1", n)
+	}
 }
 
 func TestManifestCannotLowerRegisteredRev(t *testing.T) {
