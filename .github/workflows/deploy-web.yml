@@ -1,0 +1,27 @@
+name: Deploy web (Cloudflare)
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Which Worker to deploy"
+        type: choice
+        options: [web, org]
+        default: web
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # requires a manual approval configured in GitHub
+    defaults: { run: { working-directory: "apps/${{ inputs.app }}" } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 12 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: "apps/${{ inputs.app }}/pnpm-lock.yaml" }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec opennextjs-cloudflare build
+      - run: pnpm exec opennextjs-cloudflare deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

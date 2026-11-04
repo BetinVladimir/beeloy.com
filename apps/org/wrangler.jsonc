@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "beeloy-org",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "routes": [{ "pattern": "beeloy.org/*", "zone_name": "beeloy.org" }],
+  // No PROXY_SHARED_SECRET, no auth endpoints, no session cookie on this Worker.
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://beeloy.org",
+    "NEXT_PUBLIC_COM_URL": "https://beeloy.com",
+    "I18N_API_ORIGIN": "https://api-site.beeloy.com",
+    "NEXT_PUBLIC_DEFAULT_LOCALE": "bg"
+  }
+}
