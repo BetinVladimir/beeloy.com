@@ -69,7 +69,7 @@ export function Providers({ locale, messages, children }: { locale: string; mess
 
   return (
     <I18nContext.Provider value={{ t, locale, messages }}>
-      <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="auto">
+      <MantineProvider theme={theme} cssVariablesResolver={cssVariablesResolver} defaultColorScheme="dark">
         <Notifications position="top-right" />
         <SessionContext.Provider value={{ me, loading, refresh, logout }}>
           <StreamMount me={me} />

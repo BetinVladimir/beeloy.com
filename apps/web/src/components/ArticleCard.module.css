@@ -1,0 +1,14 @@
+.card {
+  position: relative;
+}
+
+/* One link per card: the title link covers the whole card, so the cover image needs no link of its own. */
+.title a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.card:hover .title a {
+  text-decoration: underline;
+}

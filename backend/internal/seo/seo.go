@@ -18,6 +18,7 @@ type Entry struct {
 	Slug      string    `json:"path_slug"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Locales   []string  `json:"locales"`
+	Category  string    `json:"category_key,omitempty"`
 }
 
 type Handler struct {
@@ -52,7 +53,7 @@ func (h *Handler) entries(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, it := range items {
-			rows = append(rows, row{it.ID, Entry{it.Slug, it.UpdatedAt, it.Locales}})
+			rows = append(rows, row{it.ID, Entry{it.Slug, it.UpdatedAt, it.Locales, it.Category}})
 		}
 	case "ideas", "users":
 		sql := `SELECT i.id, s.slug, i.updated_at FROM ideas i JOIN slugs s ON s.entity_type='idea' AND s.entity_id=i.id AND s.is_current`

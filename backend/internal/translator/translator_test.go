@@ -413,3 +413,25 @@ func TestValidateChunkTildeFences(t *testing.T) {
 		}
 	}
 }
+
+func TestTranslateStringsSplitsLongValues(t *testing.T) {
+	var long strings.Builder
+	for i := 0; i < 12; i++ {
+		fmt.Fprintf(&long, "## Section %d\n\n%s\n\n", i, strings.Repeat("Words in a paragraph. ", 30))
+	}
+	llm := &fakeLLM{}
+	tr := &translator.Translator{LLM: llm, Model: "m", MaxChunk: 1000}
+	out, err := tr.TranslateStrings(context.Background(), "en", "de", map[string]string{"short": "Hello there, world", "rules": strings.TrimSpace(long.String())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Count(out["rules"], "Section"); got != 12 {
+		t.Fatalf("sections: %d", got)
+	}
+	if llm.calls.Load() < 4 {
+		t.Fatalf("a long value must be sent in several requests, got %d calls", llm.calls.Load())
+	}
+	if out["short"] == "" {
+		t.Fatal("short value lost")
+	}
+}

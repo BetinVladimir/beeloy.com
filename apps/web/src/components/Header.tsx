@@ -1,5 +1,5 @@
 "use client";
-import { ActionIcon, Anchor, Badge, Burger, Button, Container, Drawer, Group, Menu, Stack, useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
+import { ActionIcon, Anchor, Badge, Box, Burger, Button, Container, Drawer, Group, Menu, Stack, useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconMessage, IconMoon, IconSun, IconUser } from "@tabler/icons-react";
 import Link from "next/link";
@@ -20,8 +20,9 @@ export function Header() {
 
   const links = (
     <>
-      <Anchor component={Link} href={`${home}/news`} onClick={close}>{t("nav.news")}</Anchor>
-      <Anchor component={Link} href={`${home}/ideas`} onClick={close}>{t("nav.ideas")}</Anchor>
+      <Anchor component={Link} href={`${home}/news`} onClick={close} underline="never" c="inherit">{t("nav.news")}</Anchor>
+      <Anchor component={Link} href={`${home}/articles`} onClick={close} underline="never" c="inherit">{t("nav.articles")}</Anchor>
+      <Anchor component={Link} href={`${home}/ideas`} onClick={close} underline="never" c="inherit">{t("nav.ideas")}</Anchor>
     </>
   );
 
@@ -29,17 +30,16 @@ export function Header() {
     <header>
       <Container size="lg" py="sm">
         <Group justify="space-between" wrap="nowrap">
-          <Group gap="lg" wrap="nowrap">
-            <Anchor component={Link} href={home} fw={800} fz="xl" underline="never" c="brand.8">
-              {t("app.name")}
-            </Anchor>
-            <Group gap="md" visibleFrom="sm">{links}</Group>
-          </Group>
+          <Link href={home} style={{ display: "flex" }}>
+            <Box component="img" src="/logo.svg" alt={t("app.name")} h={40} w="auto" darkHidden />
+            <Box component="img" src="/logo-white.svg" alt={t("app.name")} h={40} w="auto" lightHidden />
+          </Link>
           <Group gap="xs" wrap="nowrap">
             <Group visibleFrom="sm"><SearchBox /></Group>
             <LocaleSwitcher />
             <ActionIcon variant="default" aria-label={t("nav.toggle_theme")} onClick={() => setColorScheme(scheme === "dark" ? "light" : "dark")}>
-              {scheme === "dark" ? <IconSun size={18} /> : <IconMoon size={18} />}
+              <Box component="span" lightHidden><IconSun size={18} /></Box>
+              <Box component="span" darkHidden><IconMoon size={18} /></Box>
             </ActionIcon>
             {!loading && me && (
               <>
@@ -69,6 +69,11 @@ export function Header() {
           </Group>
         </Group>
       </Container>
+      <nav aria-label={t("nav.menu")} style={{ borderTop: "1px solid var(--mantine-color-default-border)", borderBottom: "1px solid var(--mantine-color-default-border)" }}>
+        <Container size="lg">
+          <Group gap="xl" h={44} visibleFrom="sm" fw={600}>{links}</Group>
+        </Container>
+      </nav>
       <Drawer opened={opened} onClose={close} title={t("app.name")} size="xs">
         <Stack>
           <SearchBox />

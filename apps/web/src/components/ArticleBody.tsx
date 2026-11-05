@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { ArticleView } from "@/contracts/api-types";
 import { formatDate } from "@/lib/i18n";
 import { LOCALE_LIST } from "@/lib/locales";
+import { articlePath } from "@/lib/sections";
 import { Markdown } from "./Markdown";
 import { useT } from "./Providers";
 
@@ -28,7 +29,7 @@ export function ArticleBody({ article, locale, categoryLabel }: { article: Artic
         {article.available_locales.length > 1 && (
           <Group gap="xs" aria-label={t("article.languages")}>
             <Text size="sm" c="dimmed">{t("article.languages")}:</Text>
-            {article.available_locales.map((l) => <Anchor key={l} component={Link} href={`/${l}/news/${article.slug}`} size="sm" lang={l}>{name(l)}</Anchor>)}
+            {article.available_locales.map((l) => <Anchor key={l} component={Link} href={articlePath(l, article.category_key, article.slug)} size="sm" lang={l}>{name(l)}</Anchor>)}
           </Group>
         )}
       </Stack>

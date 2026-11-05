@@ -19,7 +19,12 @@ export default async function Layout({ children, params }: { children: ReactNode
       <body>
         <header>
           <div className="wrap">
-            <Link href={`/${locale}`} className="brand">{t("org.brand")}</Link>
+            <Link href={`/${locale}`} className="brand">
+              <picture>
+                <source media="(prefers-color-scheme: dark)" srcSet="/logo-white.svg" />
+                <img src="/logo.svg" alt={t("org.brand")} height={40} />
+              </picture>
+            </Link>
             <nav aria-label="Main">
               <Link href={`/${locale}/about`}>{t("org.nav.about")}</Link>
               <Link href={`/${locale}/mission`}>{t("org.nav.mission")}</Link>

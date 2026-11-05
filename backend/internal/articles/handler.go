@@ -79,7 +79,11 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 	if c := r.URL.Query().Get("category"); c != "" {
 		cat = &c
 	}
-	items, next, err := h.Svc.List(r.Context(), r.URL.Query().Get("locale"), cat, cur, limit)
+	var excl *string
+	if c := r.URL.Query().Get("exclude_category"); c != "" {
+		excl = &c
+	}
+	items, next, err := h.Svc.List(r.Context(), r.URL.Query().Get("locale"), cat, excl, cur, limit)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

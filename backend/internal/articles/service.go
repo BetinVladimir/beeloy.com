@@ -497,11 +497,11 @@ func (s *Service) Categories(ctx context.Context) ([]Category, error) {
 	return s.Repo.ListCategories(ctx, s.Pool)
 }
 
-func (s *Service) List(ctx context.Context, locale string, categoryKey *string, cur pagination.Cursor, limit int) ([]ArticleListItem, string, error) {
+func (s *Service) List(ctx context.Context, locale string, categoryKey, excludeKey *string, cur pagination.Cursor, limit int) ([]ArticleListItem, string, error) {
 	if !locales.Known(locale) {
 		return nil, "", apperr.Field("locale", "invalid_value")
 	}
-	items, err := s.Repo.ListPublished(ctx, s.Pool, locale, locales.Fallback(), categoryKey, cur, limit+1)
+	items, err := s.Repo.ListPublished(ctx, s.Pool, locale, locales.Fallback(), categoryKey, excludeKey, cur, limit+1)
 	if err != nil {
 		return nil, "", err
 	}

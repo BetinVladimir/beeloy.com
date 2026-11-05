@@ -3,7 +3,7 @@ import { LOCALES } from "@/lib/locales";
 import { SITE_URL } from "@/lib/seo";
 import { api } from "@/lib/api";
 
-interface Entry { path_slug: string; updated_at: string; locales: string[] }
+interface Entry { path_slug: string; updated_at: string; locales: string[]; category_key?: string }
 
 export const dynamic = "force-dynamic"; // entries reflect the current publication state
 
@@ -27,11 +27,11 @@ const alt = (path: string, locales: string[]) => Object.fromEntries(locales.map(
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [];
-  for (const p of ["", "/news", "/ideas", "/legal/privacy", "/legal/cookies", "/legal/terms", "/legal/rules"]) {
+  for (const p of ["", "/news", "/articles", "/ideas", "/legal/privacy", "/legal/cookies", "/legal/terms", "/legal/rules"]) {
     for (const l of LOCALES) entries.push({ url: `${SITE_URL}/${l}${p}`, alternates: { languages: alt(p, LOCALES) } });
   }
   for (const a of await all("articles")) {
-    const p = `/news/${a.path_slug}`;
+    const p = `/${a.category_key === "article" ? "articles" : "news"}/${a.path_slug}`;
     for (const l of a.locales) entries.push({ url: `${SITE_URL}/${l}${p}`, lastModified: a.updated_at, alternates: { languages: alt(p, a.locales) } });
   }
   for (const [type, base] of [["ideas", "ideas"], ["users", "people"]] as const) {

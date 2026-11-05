@@ -430,3 +430,31 @@ func TestValidationAndStoreFailure(t *testing.T) {
 		t.Errorf("no revision may be registered when S3 failed: %d", n)
 	}
 }
+
+// The blog ("article" category, migration 0014) is a separate section: the news list can leave it out and the blog list keeps only it.
+func TestBlogCategoryListsAreSeparate(t *testing.T) {
+	w := newWorld(t)
+	const catArticle = "0198f000-0000-7000-8000-000000000004"
+	for cat, title := range map[string]string{servertest.CatNews: "News item here", catArticle: "Blog post here"} {
+		id := w.create(t, w.editor, cat, title)
+		if r := w.publish(t, id, w.save(t, w.editor, id, title, "Body text of the piece."), "public"); r.Code != 200 {
+			t.Fatalf("publish %s: %d %s", title, r.Code, r.Raw)
+		}
+	}
+	keys := func(q string) []string {
+		var out []string
+		for _, it := range w.anon.Get("/api/v1/articles?locale=en" + q).List() {
+			out = append(out, it.(map[string]any)["category_key"].(string))
+		}
+		return out
+	}
+	if got := keys(""); len(got) != 2 {
+		t.Fatalf("all: %v", got)
+	}
+	if got := keys("&exclude_category=article"); len(got) != 1 || got[0] != "news" {
+		t.Errorf("exclude: %v", got)
+	}
+	if got := keys("&category=article"); len(got) != 1 || got[0] != "article" {
+		t.Errorf("only: %v", got)
+	}
+}

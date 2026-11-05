@@ -265,8 +265,8 @@ func scanListItem(rows interface{ Scan(...any) error }, requested string) (Artic
 	return it, nil
 }
 
-// ListPublished returns public, published articles newest first.
-func (Repo) ListPublished(ctx context.Context, q db.DBTX, locale, fallback string, categoryKey *string, cur pagination.Cursor, limit int) ([]ArticleListItem, error) {
+// ListPublished returns public, published articles newest first; categoryKey keeps one category, excludeKey drops one.
+func (Repo) ListPublished(ctx context.Context, q db.DBTX, locale, fallback string, categoryKey, excludeKey *string, cur pagination.Cursor, limit int) ([]ArticleListItem, error) {
 	var curT *time.Time
 	if !cur.IsZero() {
 		curT = &cur.T
@@ -275,9 +275,9 @@ func (Repo) ListPublished(ctx context.Context, q db.DBTX, locale, fallback strin
 		FROM articles a JOIN categories c ON c.id = a.category_id
 		JOIN slugs s ON s.entity_type = 'article' AND s.entity_id = a.id AND s.is_current
 		`+listLateral+`
-		WHERE a.status = 'published' AND a.visibility = 'public' AND ($3::text IS NULL OR c.key = $3)
-		  AND ($4::timestamptz IS NULL OR (a.published_at, a.id) < ($4, $5))
-		ORDER BY a.published_at DESC, a.id DESC LIMIT $6`, locale, fallback, categoryKey, curT, cur.ID, limit)
+		WHERE a.status = 'published' AND a.visibility = 'public' AND ($3::text IS NULL OR c.key = $3) AND ($4::text IS NULL OR c.key <> $4)
+		  AND ($5::timestamptz IS NULL OR (a.published_at, a.id) < ($5, $6))
+		ORDER BY a.published_at DESC, a.id DESC LIMIT $7`, locale, fallback, categoryKey, excludeKey, curT, cur.ID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -421,6 +421,7 @@ type SitemapEntry struct {
 	Slug      string    `json:"path_slug"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Locales   []string  `json:"locales"`
+	Category  string    `json:"category_key"`
 	ID        uuid.UUID `json:"-"`
 }
 
@@ -429,11 +430,11 @@ func (Repo) SitemapEntries(ctx context.Context, q db.DBTX, cur pagination.Cursor
 	if !cur.IsZero() {
 		curT = &cur.T
 	}
-	rows, err := q.Query(ctx, `SELECT a.id, s.slug, a.updated_at, COALESCE(array_agg(al.locale ORDER BY al.locale) FILTER (WHERE al.locale IS NOT NULL), '{}')
-		FROM articles a JOIN slugs s ON s.entity_type='article' AND s.entity_id=a.id AND s.is_current
+	rows, err := q.Query(ctx, `SELECT a.id, s.slug, a.updated_at, c.key, COALESCE(array_agg(al.locale ORDER BY al.locale) FILTER (WHERE al.locale IS NOT NULL), '{}')
+		FROM articles a JOIN categories c ON c.id = a.category_id JOIN slugs s ON s.entity_type='article' AND s.entity_id=a.id AND s.is_current
 		LEFT JOIN article_locales al ON al.article_id = a.id
 		WHERE a.status='published' AND a.visibility='public' AND ($1::timestamptz IS NULL OR (a.updated_at, a.id) < ($1, $2))
-		GROUP BY a.id, s.slug, a.updated_at ORDER BY a.updated_at DESC, a.id DESC LIMIT $3`, curT, cur.ID, limit)
+		GROUP BY a.id, s.slug, a.updated_at, c.key ORDER BY a.updated_at DESC, a.id DESC LIMIT $3`, curT, cur.ID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +442,7 @@ func (Repo) SitemapEntries(ctx context.Context, q db.DBTX, cur pagination.Cursor
 	out := []SitemapEntry{}
 	for rows.Next() {
 		var e SitemapEntry
-		if err := rows.Scan(&e.ID, &e.Slug, &e.UpdatedAt, &e.Locales); err != nil {
+		if err := rows.Scan(&e.ID, &e.Slug, &e.UpdatedAt, &e.Category, &e.Locales); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

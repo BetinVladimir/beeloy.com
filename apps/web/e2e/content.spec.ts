@@ -72,6 +72,39 @@ test("articles: editor flow writes immutable files to MinIO, publish, tamper det
   await anon.close();
 });
 
+const BLOG = "0198f000-0000-7000-8000-000000000004";
+
+// The business blog is its own section: list, post URL, redirect from the news URL, RSS, and absence from the news list.
+test("blog: article category lives under /articles, not under /news", async ({ browser }) => {
+  test.setTimeout(120_000);
+  const admin = await browser.newContext();
+  const { page } = await newUser(admin, "blogger", `blogger-${Date.now().toString(36)}`);
+  await page.goto("/en");
+  grantRole((await call<{ id: string }>(page, "GET", "/api/v1/me")).data.id, "admin");
+  const title = `Blog post ${Date.now().toString(36)}`;
+  const created = await call<{ id: string; slug: string }>(page, "POST", "/api/v1/editor/articles", { category_id: BLOG, source_locale: "en", title_for_slug: title });
+  expect(created.status, JSON.stringify(created.raw)).toBe(201);
+  const { id, slug } = created.data;
+  expect((await call(page, "PUT", `/api/v1/editor/articles/${id}/source`, { title, summary: "A post of the business blog.", body_md: "Body of the blog post, long enough." })).status).toBe(200);
+  expect((await call(page, "POST", `/api/v1/editor/articles/${id}/submit`)).status).toBe(200);
+  expect((await call(page, "POST", `/api/v1/mod/articles/${id}/publish`, { rev: 1, visibility: "public" })).status).toBe(200);
+
+  const anon = await browser.newContext();
+  const ap = await anon.newPage();
+  await expect.poll(async () => (await ap.request.get(`/api/v1/articles/${slug}?locale=en`)).status(), { timeout: 60_000, intervals: [2000] }).toBe(200);
+  await ap.goto("/en/articles");
+  await expect(ap.getByRole("link", { name: title })).toBeVisible();
+  await ap.goto("/en/news");
+  await expect(ap.getByText(title)).toHaveCount(0);
+  await ap.goto(`/en/news/${slug}`); // the news URL of a blog post redirects to its own section
+  await expect(ap).toHaveURL(new RegExp(`/en/articles/${slug}$`));
+  await expect(ap.getByRole("heading", { name: title })).toBeVisible();
+  expect(await ap.locator('script[type="application/ld+json"]').first().textContent()).toContain("BlogPosting");
+  expect(await (await ap.request.get("/en/articles/feed.xml")).text()).toContain(`/en/articles/${slug}`);
+  await admin.close();
+  await anon.close();
+});
+
 // Dictionaries on the live stack: a new release is picked up, a rollback needs the S3 manifest to point at the target,
 // and polling does not undo it afterwards.
 test("dictionaries: new release, rollback conflict, rollback after restoring the manifest, polling keeps it", async ({ request }) => {

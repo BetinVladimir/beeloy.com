@@ -113,14 +113,27 @@ func (t *Translator) TranslateArticle(ctx context.Context, src, dst string, f ar
 }
 
 // TranslateStrings translates a flat dictionary in batches of at most 40 keys / 4000 runes.
+// A single value longer than MaxChunk (a legal text, for example) is split like an article body and translated chunk by chunk.
 func (t *Translator) TranslateStrings(ctx context.Context, src, dst string, msgs map[string]string) (map[string]string, error) {
 	system := t.system(uiPrompt, src, dst)
+	max := t.MaxChunk
+	if max == 0 {
+		max = 3000
+	}
+	out := map[string]string{}
 	keys := make([]string, 0, len(msgs))
-	for k := range msgs {
-		keys = append(keys, k)
+	for k, v := range msgs {
+		if runeLen(v) <= max {
+			keys = append(keys, k)
+			continue
+		}
+		long, err := t.translateLong(ctx, src, dst, v, max)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", k, err)
+		}
+		out[k] = long
 	}
 	sort.Strings(keys)
-	out := map[string]string{}
 	var batch []string
 	size := 0
 	flush := func() error {
@@ -177,6 +190,27 @@ func (t *Translator) TranslateStrings(ctx context.Context, src, dst string, msgs
 		return nil, err
 	}
 	return out, nil
+}
+
+// translateLong translates a long Markdown value chunk by chunk (fenced code and tables are never cut).
+func (t *Translator) translateLong(ctx context.Context, src, dst, text string, max int) (string, error) {
+	system := t.system(articlePrompt, src, dst)
+	chunks, err := SplitMarkdown(text, max)
+	if err != nil {
+		return "", err
+	}
+	parts := make([]string, 0, len(chunks))
+	for i, chunk := range chunks {
+		t.logf("  chunk %d/%d (%d runes)", i+1, len(chunks), runeLen(chunk))
+		res, err := t.ask(ctx, system, map[string]string{"body_md": chunk}, func(m map[string]string) error {
+			return ValidateChunk(chunk, m["body_md"], dst)
+		})
+		if err != nil {
+			return "", fmt.Errorf("chunk %d: %w", i+1, err)
+		}
+		parts = append(parts, strings.TrimSpace(res["body_md"]))
+	}
+	return strings.Join(parts, "\n\n"), nil
 }
 
 // ---- article mode ----
